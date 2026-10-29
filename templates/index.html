@@ -1,38 +1,359 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinWise AI Dashboard</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 40px 20px;
-            font-family: Arial, sans-serif;
-            background: #101827;
-            color: white;
-        }
-        .container {
-            max-width: 900px;
-            margin: auto;
-        }
-        h1 { color: #50e3a4; }
-        .card {
-            margin-top: 25px;
-            padding: 25px;
-            border-radius: 14px;
-            background: #1c2938;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinWise AI | Smart Finance Dashboard</title>
+<style>
+:root {
+  --bg:#0b1120; --panel:#141e30; --panel2:#1b2940;
+  --text:#f4f7fb; --muted:#94a3b8; --green:#42e6a4;
+  --blue:#6d8cff; --red:#ff7185; --border:#28364c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:235px;padding:28px 18px;background:#0e1728;border-right:1px solid var(--border);flex-shrink:0}
+.brand{font-size:24px;font-weight:800;color:var(--green);margin:5px 8px 35px}
+.brand span{color:white}
+.nav-label{font-size:11px;color:var(--muted);letter-spacing:1.5px;margin:25px 10px 12px}
+.nav{display:block;padding:12px;border-radius:10px;color:#bdc8d8;text-decoration:none;margin:5px 0}
+.nav:hover,.nav.active{background:#1d3040;color:var(--green)}
+.side-note{margin-top:35px;padding:14px;border:1px solid var(--border);border-radius:12px;color:var(--muted);font-size:12px;line-height:1.6}
+.main{flex:1;min-width:0;padding:28px 32px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}
+.eyebrow{color:var(--muted);font-size:13px}
+h1{font-size:27px;margin:8px 0}
+h2{font-size:17px;margin:0 0 8px}
+h3{font-size:14px;margin:0 0 18px}
+p{line-height:1.5}
+.muted{color:var(--muted);font-size:13px}
+.user-chip{background:var(--panel);border:1px solid var(--border);padding:10px 14px;border-radius:12px}
+.btn{border:0;border-radius:9px;padding:11px 15px;font-weight:700}
+.btn-green{background:var(--green);color:#092218}
+.btn-secondary{background:var(--panel2);color:white;border:1px solid var(--border)}
+.btn-danger{background:#432331;color:#ffb4bf}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.panel,.stat{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px}
+.stat-label{font-size:13px;color:var(--muted)}
+.stat-value{font-size:25px;font-weight:800;margin:16px 0 9px;overflow-wrap:anywhere}
+.stat-foot{font-size:12px;color:var(--muted)}
+.stat-icon{float:right;font-size:20px;background:var(--panel2);padding:9px;border-radius:10px}
+.green{color:var(--green)}.red{color:var(--red)}.blue{color:var(--blue)}
+.two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:18px}
+.panel{margin-top:18px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.progress{height:9px;background:#273449;border-radius:10px;overflow:hidden;margin:16px 0}
+.progress span{display:block;height:100%;width:0;background:var(--green);border-radius:10px;transition:width .3s}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}
+input,select{width:100%;padding:12px;border-radius:9px;border:1px solid var(--border);background:#0d1727;color:white;outline:none}
+input:focus,select:focus{border-color:var(--green)}
+.form-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--border);font-size:13px}
+th{color:var(--muted);font-weight:500}
+.empty{text-align:center;padding:25px;color:var(--muted)}
+.goal-item{padding:14px 0;border-bottom:1px solid var(--border)}
+.goal-item:last-child{border-bottom:0}
+.goal-line{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.advisor{background:linear-gradient(120deg,#142e32,#17223a);border-color:#28504b}
+.advisor ul{padding-left:20px;color:#d1deeb;line-height:1.9;font-size:13px}
+.chart{height:180px;display:flex;align-items:end;gap:12px;padding-top:20px}
+.bar-col{flex:1;min-width:0;text-align:center;color:var(--muted);font-size:11px}
+.bar{max-width:44px;width:75%;margin:0 auto 8px;background:linear-gradient(180deg,var(--green),#248b70);border-radius:7px 7px 2px 2px;min-height:3px}
+.toast{display:none;padding:12px;border-radius:9px;background:#153c31;color:#a7ffda;margin-bottom:14px;font-size:13px}
+.mobile-menu{display:none}
+.footer{text-align:center;color:var(--muted);font-size:12px;padding:25px}
+@media(max-width:1050px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}}
+@media(max-width:700px){
+ .layout{display:block}.sidebar{width:100%;padding:14px;position:relative}
+ .brand{margin:5px 8px 12px}.nav-label,.side-note{display:none}
+ .navs{display:flex;gap:6px;overflow-x:auto}.nav{white-space:nowrap;padding:10px}
+ .main{padding:20px 14px}.topbar{align-items:flex-start}.topbar h1{font-size:23px}
+ .user-chip{font-size:12px}.grid{gap:10px}.stat,.panel{padding:15px}
+ .stat-value{font-size:20px}.form-grid{grid-template-columns:1fr}
+}
+@media(max-width:380px){.grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>FinWise AI</h1>
-        <p>Your personal finance dashboard</p>
-        <div class="card">
-            <h2>Welcome to FinWise AI</h2>
-            <p>Manage your personal finances in one place.</p>
-        </div>
+<div class="layout">
+<aside class="sidebar">
+  <div class="brand">FinWise <span>AI</span></div>
+  <div class="nav-label">WORKSPACE</div>
+  <nav class="navs">
+    <a class="nav active" href="#overview">▦ Overview</a>
+    <a class="nav" href="#transactions">⇄ Transactions</a>
+    <a class="nav" href="#budget">◉ Budget</a>
+    <a class="nav" href="#goals">◎ Savings Goals</a>
+    <a class="nav" href="#advisor">✦ AI Advisor</a>
+  </nav>
+  <div class="side-note">✦ <b>Money, made clearer.</b><br>Track spending, manage your budget, and work towards your financial goals.</div>
+  <form action="/logout" method="post" style="margin-top:24px">
+    <button class="btn btn-secondary" style="width:100%">↪ Logout</button>
+  </form>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">YOUR FINANCIAL OVERVIEW</div>
+      <h1>Dashboard</h1>
+      <div class="muted">Welcome back, <b id="welcomeName">there</b> 👋</div>
     </div>
+    <div class="user-chip">● <span class="green">Account active</span></div>
+  </header>
+
+  <div id="toast" class="toast"></div>
+
+  <section id="overview">
+    <div class="grid">
+      <div class="stat"><span class="stat-icon green">↗</span><div class="stat-label">Total Income</div><div class="stat-value" id="income">₹0</div><div class="stat-foot">Recorded income</div></div>
+      <div class="stat"><span class="stat-icon red">↘</span><div class="stat-label">Total Expenses</div><div class="stat-value" id="expense">₹0</div><div class="stat-foot">Recorded spending</div></div>
+      <div class="stat"><span class="stat-icon blue">◈</span><div class="stat-label">Budget Remaining</div><div class="stat-value" id="remaining">₹10,000</div><div class="stat-foot">Your available budget</div></div>
+      <div class="stat"><span class="stat-icon">◎</span><div class="stat-label">Savings Difference</div><div class="stat-value" id="balance">₹0</div><div class="stat-foot">Income minus expenses</div></div>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel" id="budget">
+      <div class="panel-head"><div><h2>Monthly Budget</h2><div class="muted">Track your spending limit</div></div><span class="green">◉</span></div>
+      <div class="stat-label">Your budget</div><div class="stat-value" id="budgetAmount">₹10,000</div>
+      <div class="progress"><span id="budgetBar"></span></div>
+      <div class="goal-line"><span class="muted" id="budgetUsed">0% used</span><span class="muted" id="budgetLeft">₹10,000 left</span></div>
+      <form id="budgetForm" style="margin-top:22px">
+        <label for="newBudget">Set monthly budget (₹)</label>
+        <input id="newBudget" type="number" min="1" step="0.01" required placeholder="e.g. 15000">
+        <div class="form-actions"><button class="btn btn-green">Update Budget</button></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>Spending Snapshot</h2><div class="muted">Your expense categories</div></div></div>
+      <div id="chart" class="chart"><div class="empty" style="width:100%">Add expenses to see your chart.</div></div>
+      <div class="muted">Based on transactions saved in your account.</div>
+    </section>
+  </div>
+
+  <section class="panel" id="transactions">
+    <div class="panel-head"><div><h2>Transactions</h2><div class="muted">Record your income and expenses</div></div><span class="green">⇄</span></div>
+    <form id="transactionForm">
+      <div class="form-grid">
+        <div><label for="type">Transaction type</label><select id="type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
+        <div><label for="amount">Amount (₹)</label><input id="amount" type="number" min="0.01" step="0.01" required placeholder="e.g. 500"></div>
+        <div><label for="category">Category</label><select id="category"><option>Food</option><option>Travel</option><option>Shopping</option><option>Bills</option><option>Education</option><option>Health</option><option>Salary</option><option>Freelance</option><option>Investment</option><option>Other</option></select></div>
+        <div><label for="note">Description</label><input id="note" maxlength="180" placeholder="e.g. Lunch or monthly salary"></div>
+      </div>
+      <div class="form-actions"><button class="btn btn-green" type="submit">+ Add Transaction</button><button class="btn btn-secondary" type="reset">Clear</button></div>
+    </form>
+    <div class="panel-head" style="margin-top:28px"><h3 style="margin:0">Recent Activity</h3><button id="refreshBtn" class="btn btn-secondary" type="button">↻ Refresh</button></div>
+    <div class="table-wrap"><table><thead><tr><th>TYPE</th><th>CATEGORY</th><th>DESCRIPTION</th><th>DATE</th><th>AMOUNT</th><th>ACTION</th></tr></thead><tbody id="transactionsBody"><tr><td colspan="6" class="empty">Loading transactions...</td></tr></tbody></table></div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel" id="goals">
+      <div class="panel-head"><div><h2>Savings Goals</h2><div class="muted">Plan for what matters</div></div><span class="green">◎</span></div>
+      <form id="goalForm">
+        <label for="goalName">Goal name</label><input id="goalName" required maxlength="80" placeholder="e.g. New laptop">
+        <label for="goalTarget" style="margin-top:12px">Target amount (₹)</label><input id="goalTarget" type="number" min="1" step="0.01" required placeholder="e.g. 50000">
+        <div class="form-actions"><button class="btn btn-green">Create Goal</button></div>
+      </form>
+      <div id="goalsList" style="margin-top:18px"><div class="empty">Loading goals...</div></div>
+    </section>
+
+    <section class="panel advisor" id="advisor">
+      <div class="panel-head"><div><h2>✦ AI Finance Advisor</h2><div class="muted">Insights from your own records</div></div></div>
+      <h3 id="advisorHeadline">Your money coach is ready</h3>
+      <p id="advisorMessage" class="muted">Add transactions to receive finance insights.</p>
+      <ul id="advisorTips"><li>Set a realistic monthly budget.</li><li>Record expenses consistently.</li></ul>
+      <button id="advisorRefresh" class="btn btn-secondary" type="button">Refresh Insights</button>
+    </section>
+  </div>
+
+  <div class="footer">FinWise AI · Personal Finance Dashboard</div>
+</main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const money = n => new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(n)||0);
+let transactions = [];
+let summaryData = {income:0,expense:0,budget:10000,remaining:10000};
+
+function toast(message, error=false) {
+  const el=$("toast");
+  el.textContent=message;
+  el.style.display="block";
+  el.style.background=error?"#48212a":"#153c31";
+  el.style.color=error?"#ffc0c8":"#a7ffda";
+  window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(()=>{el.style.display="none"},4500);
+}
+
+async function api(url, options={}) {
+  const response=await fetch(url,{credentials:"same-origin",...options});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===401){window.location.href="/login";throw new Error("Please log in again.");}
+  if(!response.ok)throw new Error(data.error||"Request failed. Please try again.");
+  return data;
+}
+
+async function loadSummary(){
+  summaryData=await api("/api/summary");
+  $("income").textContent=money(summaryData.income);
+  $("expense").textContent=money(summaryData.expense);
+  $("remaining").textContent=money(summaryData.remaining);
+  $("balance").textContent=money(summaryData.income-summaryData.expense);
+  $("budgetAmount").textContent=money(summaryData.budget);
+  $("budgetLeft").textContent=money(summaryData.remaining)+" left";
+  const pct=summaryData.budget>0?summaryData.expense/summaryData.budget*100:0;
+  $("budgetUsed").textContent=pct.toFixed(1)+"% used";
+  $("budgetBar").style.width=Math.min(100,Math.max(0,pct))+"%";
+  $("budgetBar").style.background=pct>100?"#ff7185":"#42e6a4";
+  $("newBudget").placeholder="Current: "+summaryData.budget;
+}
+
+async function loadTransactions(){
+  transactions=await api("/api/transactions");
+  const body=$("transactionsBody");
+  if(!transactions.length){
+    body.innerHTML='<tr><td colspan="6" class="empty">No transactions yet. Add your first one above.</td></tr>';
+    renderChart([]);
+    return;
+  }
+  body.innerHTML=transactions.map(t=>`<tr>
+    <td class="${t.type==="income"?"green":"red"}">${t.type==="income"?"↗ Income":"↘ Expense"}</td>
+    <td>${escapeHtml(t.category)}</td>
+    <td>${escapeHtml(t.note||"—")}</td>
+    <td>${escapeHtml((t.created_at||"").slice(0,10))}</td>
+    <td class="${t.type==="income"?"green":"red"}">${t.type==="income"?"+":"−"}${money(t.amount)}</td>
+    <td><button class="btn btn-danger" data-delete="${t.id}">Delete</button></td>
+  </tr>`).join("");
+  renderChart(transactions.filter(t=>t.type==="expense"));
+}
+
+function renderChart(items){
+  const totals={};
+  items.forEach(t=>totals[t.category]=(totals[t.category]||0)+Number(t.amount||0));
+  const entries=Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  if(!entries.length){$("chart").innerHTML='<div class="empty" style="width:100%">Add expenses to see your chart.</div>';return;}
+  const max=Math.max(...entries.map(e=>e[1]),1);
+  $("chart").innerHTML=entries.map(([name,value])=>`<div class="bar-col" title="${escapeHtml(name)}: ${money(value)}"><div class="bar" style="height:${Math.max(5,value/max*125)}px"></div><div>${escapeHtml(name.slice(0,10))}</div><div>${money(value)}</div></div>`).join("");
+}
+
+async function loadGoals(){
+  const goals=await api("/api/goals");
+  const el=$("goalsList");
+  if(!goals.length){el.innerHTML='<div class="empty">No savings goals yet.</div>';return;}
+  el.innerHTML=goals.map(g=>{
+    const pct=Math.min(100,Number(g.saved)/Math.max(1,Number(g.target))*100);
+    return `<div class="goal-item">
+      <div class="goal-line"><b>${escapeHtml(g.name)}</b><button class="btn btn-danger" data-goal-delete="${g.id}">Delete</button></div>
+      <div class="goal-line" style="margin-top:9px"><span class="muted">${money(g.saved)} saved</span><span class="muted">Target ${money(g.target)}</span></div>
+      <div class="progress"><span style="width:${pct}%;background:#6d8cff"></span></div>
+      <div class="form-actions"><input aria-label="Contribution amount" id="contribute-${g.id}" type="number" min="0.01" step="0.01" placeholder="Add savings ₹" style="max-width:180px"><button class="btn btn-secondary" data-contribute="${g.id}">Add Savings</button></div>
+    </div>`;
+  }).join("");
+}
+
+async function loadAdvisor(){
+  const data=await api("/api/advisor");
+  $("advisorHeadline").textContent=data.headline||"Your money coach";
+  $("advisorMessage").textContent=data.message||"";
+  $("advisorTips").innerHTML=(data.tips||[]).map(t=>`<li>${escapeHtml(t)}</li>`).join("");
+}
+
+function escapeHtml(value){
+  return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+
+async function refreshAll(){
+  try{
+    await Promise.all([loadSummary(),loadTransactions(),loadGoals(),loadAdvisor()]);
+  }catch(e){toast(e.message,true);}
+}
+
+$("transactionForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const amount=Number($("amount").value);
+  if(!Number.isFinite(amount)||amount<=0){toast("Enter a valid positive amount.",true);return;}
+  try{
+    await api("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      type:$("type").value,amount,category:$("category").value,note:$("note").value.trim()
+    })});
+    $("transactionForm").reset();
+    toast("Transaction added successfully!");
+    await refreshAll();
+  }catch(err){toast(err.message,true);}
+});
+
+$("budgetForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const amount=Number($("newBudget").value);
+  if(!Number.isFinite(amount)||amount<=0){toast("Enter a valid budget amount.",true);return;}
+  try{
+    await api("/api/budget",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})});
+    $("newBudget").value="";
+    toast("Monthly budget updated!");
+    await refreshAll();
+  }catch(err){toast(err.message,true);}
+});
+
+$("goalForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const name=$("goalName").value.trim(),target=Number($("goalTarget").value);
+  if(!name||!Number.isFinite(target)||target<=0){toast("Enter a goal name and valid target.",true);return;}
+  try{
+    await api("/api/goals",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,target})});
+    $("goalForm").reset();
+    toast("Savings goal created!");
+    await loadGoals();
+  }catch(err){toast(err.message,true);}
+});
+
+$("transactionsBody").addEventListener("click",async e=>{
+  const id=e.target.dataset.delete;
+  if(!id)return;
+  if(!confirm("Delete this transaction?"))return;
+  try{
+    await api("/api/transactions/"+id,{method:"DELETE"});
+    toast("Transaction deleted.");
+    await refreshAll();
+  }catch(err){toast(err.message,true);}
+});
+
+$("goalsList").addEventListener("click",async e=>{
+  const del=e.target.dataset.goalDelete;
+  const contribution=e.target.dataset.contribute;
+  try{
+    if(del){
+      if(!confirm("Delete this savings goal?"))return;
+      await api("/api/goals/"+del,{method:"DELETE"});
+      toast("Savings goal deleted.");
+      await loadGoals();
+    }
+    if(contribution){
+      const amount=Number($("contribute-"+contribution).value);
+      if(!Number.isFinite(amount)||amount<=0){toast("Enter a valid contribution amount.",true);return;}
+      await api("/api/goals/"+contribution+"/contribute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount})});
+      toast("Savings contribution added!");
+      await loadGoals();
+    }
+  }catch(err){toast(err.message,true);}
+});
+
+$("refreshBtn").addEventListener("click",refreshAll);
+$("advisorRefresh").addEventListener("click",async()=>{
+  try{await loadAdvisor();toast("Finance insights refreshed.");}
+  catch(e){toast(e.message,true);}
+});
+
+refreshAll();
+</script>
 </body>
 </html>
