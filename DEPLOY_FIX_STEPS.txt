@@ -1,0 +1,22 @@
+FINWISE AI — DEPLOYMENT FIX
+
+The Render error was: jinja2.exceptions.TemplateNotFound: auth.html
+
+This ZIP preserves the correct Flask folder layout:
+- app.py
+- requirements.txt
+- Procfile
+- render.yaml
+- templates/auth.html
+- templates/index.html
+- static/style.css
+
+To fix the existing GitHub repository:
+1. Extract this ZIP on your computer.
+2. In GitHub, remove or replace the incorrectly placed root-level auth.html, index.html, and style.css files only after uploading the correct folder structure.
+3. Upload the CONTENTS of FinWise_AI_Public_Fixed into the repository, keeping templates/ and static/ as folders.
+4. Confirm GitHub shows templates/ and static/ as folders at the root.
+5. Render should automatically redeploy after the commit. Wait until the latest deploy says Live.
+6. Test https://finwise-ai-14sg.onrender.com/login and /signup.
+
+Do not upload .venv or a local finwise.db. For persistent production user data, configure a persistent database/storage; Render's local filesystem on a free service is not a durable database.
