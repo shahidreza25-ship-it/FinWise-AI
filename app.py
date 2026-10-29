@@ -1,51 +1,84 @@
-import os, sqlite3, csv, io
-from datetime import datetime
+
+import os
+import sqlite3
+import csv
+import io
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(
     __name__,
     template_folder=os.path.join(BASE_DIR, "templates"),
     static_folder=os.path.join(BASE_DIR, "static"),
 )
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-before-deploying")
+
+app.secret_key = os.environ.get("SECRET_KEY", "finwise-development-key-change-in-render")
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+)
+
 DB = os.environ.get("FINWISE_DB_PATH", os.path.join(BASE_DIR, "finwise.db"))
 
+
 def connect():
-    c = sqlite3.connect(DB)
+    c = sqlite3.connect(DB, timeout=30)
     c.row_factory = sqlite3.Row
     return c
+
 
 def init_db():
     c = connect()
     c.executescript("""
     CREATE TABLE IF NOT EXISTS users(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
     );
+
     CREATE TABLE IF NOT EXISTS settings(
-      user_id INTEGER PRIMARY KEY, monthly_budget REAL NOT NULL DEFAULT 10000,
-      FOREIGN KEY(user_id) REFERENCES users(id)
+        user_id INTEGER PRIMARY KEY,
+        monthly_budget REAL NOT NULL DEFAULT 10000,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     );
+
     CREATE TABLE IF NOT EXISTS transactions(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
-      type TEXT NOT NULL, category TEXT NOT NULL, amount REAL NOT NULL,
-      note TEXT DEFAULT '', created_at TEXT NOT NULL,
-      FOREIGN KEY(user_id) REFERENCES users(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        note TEXT DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     );
+
     CREATE TABLE IF NOT EXISTS goals(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
-      name TEXT NOT NULL, target REAL NOT NULL, saved REAL NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        target REAL NOT NULL,
+        saved REAL NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     );
     """)
-    c.commit(); c.close()
+    c.commit()
+    c.close()
+
 
 def current_user():
     return session.get("user_id")
+
 
 def login_required(fn):
     @wraps(fn)
@@ -57,184 +90,471 @@ def login_required(fn):
         return fn(*args, **kwargs)
     return wrapped
 
+
 @app.route("/")
 def home():
-    if not current_user(): return redirect(url_for("login"))
+    if not current_user():
+        return redirect(url_for("login"))
     return render_template("index.html", name=session.get("name", "there"))
+
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == "POST":
-        name = request.form.get("name","").strip()
-        email = request.form.get("email","").strip().lower()
-        password = request.form.get("password","")
-        if not name or not email or len(password) < 8:
-            flash("Enter your name and email, and use a password with at least 8 characters.", "error")
-            return render_template("auth.html", mode="signup")
-        c=connect()
-        try:
-            cur=c.execute("INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
-                (name,email,generate_password_hash(password),datetime.now().isoformat(timespec="seconds")))
-            uid=cur.lastrowid
-            c.execute("INSERT INTO settings(user_id,monthly_budget) VALUES(?,10000)",(uid,))
-            c.commit()
-            session["user_id"]=uid; session["name"]=name
-            return redirect(url_for("home"))
-        except sqlite3.IntegrityError:
-            flash("An account with this email already exists. Please log in.", "error")
-        finally: c.close()
-    return render_template("auth.html", mode="signup")
+    if request.method == "GET":
+        return """
+        <!doctype html>
+        <html lang="en">
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Create FinWise AI Account</title>
+        <style>
+        body{font-family:Arial;background:#101827;color:white;display:grid;
+        place-items:center;min-height:100vh;margin:0}
+        form{background:#1b2638;padding:28px;border-radius:16px;
+        width:min(340px,85vw)}
+        input,button{box-sizing:border-box;width:100%;padding:12px;
+        margin:8px 0;border-radius:8px;border:1px solid #536176}
+        input{background:#101827;color:white}
+        button{background:#5b7cfa;color:white;border:0;
+        font-weight:bold;cursor:pointer}
+        a{color:#9db0ff}
+        </style>
+        </head>
+        <body>
+        <form method="post">
+        <h2>Create FinWise AI Account</h2>
+        <p>Create an account before logging in.</p>
+        <label>Name</label>
+        <input name="name" required placeholder="Your name">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="you@example.com">
+        <label>Password (minimum 8 characters)</label>
+        <input type="password" name="password" minlength="8" required>
+        <button type="submit">Create Account</button>
+        <p>Already registered? <a href="/login">Login</a></p>
+        </form>
+        </body>
+        </html>
+        """
 
-@app.route("/login", methods=["GET","POST"])
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not name or not email or len(password) < 8:
+        return "Please enter your name, valid email and a password of at least 8 characters.", 400
+
+    c = connect()
+    try:
+        cur = c.execute(
+            "INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
+            (
+                name,
+                email,
+                generate_password_hash(password),
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        uid = cur.lastrowid
+        c.execute(
+            "INSERT INTO settings(user_id,monthly_budget) VALUES(?,10000)",
+            (uid,),
+        )
+        c.commit()
+
+        session.clear()
+        session.permanent = True
+        session["user_id"] = uid
+        session["name"] = name
+
+        return redirect(url_for("home"))
+
+    except sqlite3.IntegrityError:
+        return "This email is already registered. Please <a href='/login'>log in</a>.", 409
+    finally:
+        c.close()
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method=="POST":
-        email=request.form.get("email","").strip().lower()
-        password=request.form.get("password","")
-        c=connect(); user=c.execute("SELECT * FROM users WHERE email=?",(email,)).fetchone(); c.close()
-        if user and check_password_hash(user["password_hash"],password):
-            session["user_id"]=user["id"]; session["name"]=user["name"]
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        c = connect()
+        try:
+            user = c.execute(
+                "SELECT * FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+        finally:
+            c.close()
+
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session.permanent = True
+            session["user_id"] = user["id"]
+            session["name"] = user["name"]
             return redirect(url_for("home"))
-        flash("Email or password is incorrect.", "error")
+
+        flash(
+            "Email or password is incorrect. If you are new, create an account first.",
+            "error",
+        )
+
     return render_template("auth.html", mode="login")
+
 
 @app.post("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
+
 @app.get("/api/summary")
 @login_required
 def summary():
-    c=connect(); uid=current_user()
-    income=c.execute("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='income'",(uid,)).fetchone()[0]
-    expense=c.execute("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='expense'",(uid,)).fetchone()[0]
-    row=c.execute("SELECT monthly_budget FROM settings WHERE user_id=?",(uid,)).fetchone()
-    budget=float(row["monthly_budget"]) if row else 10000
+    c = connect()
+    uid = current_user()
+
+    income = c.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='income'",
+        (uid,),
+    ).fetchone()[0]
+
+    expense = c.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='expense'",
+        (uid,),
+    ).fetchone()[0]
+
+    row = c.execute(
+        "SELECT monthly_budget FROM settings WHERE user_id=?",
+        (uid,),
+    ).fetchone()
+
+    budget = float(row["monthly_budget"]) if row else 10000
     c.close()
-    return jsonify(income=income,expense=expense,budget=budget,remaining=budget-expense,used=(expense/budget*100 if budget else 0))
+
+    return jsonify(
+        income=income,
+        expense=expense,
+        budget=budget,
+        remaining=budget-expense,
+        used=(expense/budget*100 if budget else 0),
+    )
+
 
 @app.get("/api/transactions")
 @login_required
 def list_transactions():
-    c=connect()
-    rows=c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC LIMIT 200",(current_user(),)).fetchall()
+    c = connect()
+    rows = c.execute(
+        "SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC LIMIT 200",
+        (current_user(),),
+    ).fetchall()
     c.close()
     return jsonify([dict(r) for r in rows])
+
 
 @app.post("/api/transactions")
 @login_required
 def add_transaction():
-    d=request.get_json(silent=True) or {}
-    typ=d.get("type"); category=(d.get("category") or "Other").strip()
-    try: amount=float(d.get("amount",0))
-    except (TypeError,ValueError): amount=0
-    if typ not in ("income","expense") or amount<=0 or amount>1000000000:
-        return jsonify(error="Enter a valid transaction type and amount."),400
-    c=connect(); c.execute("INSERT INTO transactions(user_id,type,category,amount,note,created_at) VALUES(?,?,?,?,?,?)",
-        (current_user(),typ,category,amount,(d.get("note") or "").strip()[:180],datetime.now().isoformat(timespec="seconds")))
-    c.commit(); c.close()
+    d = request.get_json(silent=True) or {}
+    typ = d.get("type")
+    category = (d.get("category") or "Other").strip()
+
+    try:
+        amount = float(d.get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
+
+    if typ not in ("income", "expense") or amount <= 0 or amount > 1000000000:
+        return jsonify(error="Enter a valid transaction type and amount."), 400
+
+    c = connect()
+    c.execute(
+        "INSERT INTO transactions(user_id,type,category,amount,note,created_at) VALUES(?,?,?,?,?,?)",
+        (
+            current_user(),
+            typ,
+            category,
+            amount,
+            (d.get("note") or "").strip()[:180],
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+    c.commit()
+    c.close()
     return jsonify(ok=True)
+
 
 @app.delete("/api/transactions/<int:tid>")
 @login_required
 def delete_transaction(tid):
-    c=connect(); c.execute("DELETE FROM transactions WHERE id=? AND user_id=?",(tid,current_user()))
-    c.commit(); c.close(); return jsonify(ok=True)
+    c = connect()
+    c.execute(
+        "DELETE FROM transactions WHERE id=? AND user_id=?",
+        (tid, current_user()),
+    )
+    c.commit()
+    c.close()
+    return jsonify(ok=True)
+
 
 @app.post("/api/budget")
 @login_required
 def set_budget():
-    try: amount=float((request.get_json(silent=True) or {}).get("amount",0))
-    except (TypeError,ValueError): amount=0
-    if amount<=0 or amount>1000000000:return jsonify(error="Enter a valid budget."),400
-    c=connect(); c.execute("INSERT INTO settings(user_id,monthly_budget) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET monthly_budget=excluded.monthly_budget",(current_user(),amount))
-    c.commit(); c.close(); return jsonify(ok=True)
+    try:
+        amount = float((request.get_json(silent=True) or {}).get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
+
+    if amount <= 0 or amount > 1000000000:
+        return jsonify(error="Enter a valid budget."), 400
+
+    c = connect()
+    c.execute(
+        """INSERT INTO settings(user_id,monthly_budget) VALUES(?,?)
+        ON CONFLICT(user_id) DO UPDATE SET monthly_budget=excluded.monthly_budget""",
+        (current_user(), amount),
+    )
+    c.commit()
+    c.close()
+    return jsonify(ok=True)
+
 
 @app.get("/api/advisor")
 @login_required
 def advisor():
-    uid=current_user(); c=connect()
-    rows=c.execute("SELECT category,SUM(amount) total FROM transactions WHERE user_id=? AND type='expense' GROUP BY category ORDER BY total DESC",(uid,)).fetchall()
-    income=c.execute("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='income'",(uid,)).fetchone()[0]
-    expense=c.execute("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='expense'",(uid,)).fetchone()[0]
-    budget=c.execute("SELECT monthly_budget FROM settings WHERE user_id=?",(uid,)).fetchone()["monthly_budget"]
-    c.close(); remaining=budget-expense; tips=[]
+    uid = current_user()
+    c = connect()
+
+    rows = c.execute(
+        "SELECT category,SUM(amount) total FROM transactions WHERE user_id=? AND type='expense' GROUP BY category ORDER BY total DESC",
+        (uid,),
+    ).fetchall()
+
+    income = c.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='income'",
+        (uid,),
+    ).fetchone()[0]
+
+    expense = c.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE user_id=? AND type='expense'",
+        (uid,),
+    ).fetchone()[0]
+
+    row = c.execute(
+        "SELECT monthly_budget FROM settings WHERE user_id=?",
+        (uid,),
+    ).fetchone()
+
+    budget = row["monthly_budget"] if row else 10000
+    c.close()
+
+    remaining = budget - expense
+    tips = []
+
     if not rows:
-        return jsonify(headline="Your money coach is ready",message="Add a few transactions to get insights based on your own records.",tips=["Set a realistic monthly budget.","Record expenses consistently to spot patterns."])
-    top=rows[0]; ratio=expense/income*100 if income else None
-    tips.append(f"Budget remaining: ₹{remaining:,.0f}." if remaining>=0 else f"You are ₹{abs(remaining):,.0f} over budget. Review {top['category']} spending first.")
-    tips.append(f"Your largest recorded expense category is {top['category']} (₹{top['total']:,.0f}).")
-    if ratio is not None: tips.append(f"Recorded expenses are {ratio:.0f}% of recorded income.")
-    else: tips.append("Add income entries too, so you can compare spending with income.")
-    return jsonify(headline="Your personal finance snapshot",message="These suggestions are generated from your own recorded transactions.",tips=tips)
+        return jsonify(
+            headline="Your money coach is ready",
+            message="Add a few transactions to get insights based on your own records.",
+            tips=[
+                "Set a realistic monthly budget.",
+                "Record expenses consistently to spot patterns.",
+            ],
+        )
+
+    top = rows[0]
+    ratio = expense / income * 100 if income else None
+
+    tips.append(
+        f"Budget remaining: ₹{remaining:,.0f}."
+        if remaining >= 0
+        else f"You are ₹{abs(remaining):,.0f} over budget. Review {top['category']} spending first."
+    )
+    tips.append(
+        f"Your largest recorded expense category is {top['category']} (₹{top['total']:,.0f})."
+    )
+
+    if ratio is not None:
+        tips.append(f"Recorded expenses are {ratio:.0f}% of recorded income.")
+    else:
+        tips.append("Add income entries too, so you can compare spending with income.")
+
+    return jsonify(
+        headline="Your personal finance snapshot",
+        message="These suggestions are generated from your own recorded transactions.",
+        tips=tips,
+    )
+
 
 @app.get("/api/goals")
 @login_required
 def list_goals():
-    c=connect(); rows=c.execute("SELECT * FROM goals WHERE user_id=? ORDER BY id DESC",(current_user(),)).fetchall(); c.close()
+    c = connect()
+    rows = c.execute(
+        "SELECT * FROM goals WHERE user_id=? ORDER BY id DESC",
+        (current_user(),),
+    ).fetchall()
+    c.close()
     return jsonify([dict(r) for r in rows])
+
 
 @app.post("/api/goals")
 @login_required
 def add_goal():
-    d=request.get_json(silent=True) or {}; name=(d.get("name") or "").strip()
-    try: target=float(d.get("target",0))
-    except (TypeError,ValueError): target=0
-    if not name or target<=0:return jsonify(error="Enter a goal name and positive target."),400
-    c=connect(); c.execute("INSERT INTO goals(user_id,name,target,saved,created_at) VALUES(?,?,?,0,?)",(current_user(),name[:80],target,datetime.now().isoformat(timespec="seconds"))); c.commit(); c.close()
+    d = request.get_json(silent=True) or {}
+    name = (d.get("name") or "").strip()
+
+    try:
+        target = float(d.get("target", 0))
+    except (TypeError, ValueError):
+        target = 0
+
+    if not name or target <= 0:
+        return jsonify(error="Enter a goal name and positive target."), 400
+
+    c = connect()
+    c.execute(
+        "INSERT INTO goals(user_id,name,target,saved,created_at) VALUES(?,?,?,0,?)",
+        (
+            current_user(),
+            name[:80],
+            target,
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+    c.commit()
+    c.close()
     return jsonify(ok=True)
+
 
 @app.post("/api/goals/<int:gid>/contribute")
 @login_required
 def contribute(gid):
-    d=request.get_json(silent=True) or {}
-    try: amount=float(d.get("amount",0))
-    except (TypeError,ValueError): amount=0
-    if amount<=0:return jsonify(error="Enter a positive amount."),400
-    c=connect(); row=c.execute("SELECT id,target,saved FROM goals WHERE id=? AND user_id=?",(gid,current_user())).fetchone()
-    if not row: c.close(); return jsonify(error="Goal not found."),404
-    c.execute("UPDATE goals SET saved=? WHERE id=? AND user_id=?",(row["saved"]+amount,gid,current_user()))
-    c.commit(); c.close(); return jsonify(ok=True)
+    d = request.get_json(silent=True) or {}
+
+    try:
+        amount = float(d.get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
+
+    if amount <= 0:
+        return jsonify(error="Enter a positive amount."), 400
+
+    c = connect()
+    row = c.execute(
+        "SELECT id,target,saved FROM goals WHERE id=? AND user_id=?",
+        (gid, current_user()),
+    ).fetchone()
+
+    if not row:
+        c.close()
+        return jsonify(error="Goal not found."), 404
+
+    c.execute(
+        "UPDATE goals SET saved=? WHERE id=? AND user_id=?",
+        (row["saved"] + amount, gid, current_user()),
+    )
+    c.commit()
+    c.close()
+    return jsonify(ok=True)
+
 
 @app.delete("/api/goals/<int:gid>")
 @login_required
 def delete_goal(gid):
-    c=connect(); c.execute("DELETE FROM goals WHERE id=? AND user_id=?",(gid,current_user())); c.commit(); c.close()
+    c = connect()
+    c.execute(
+        "DELETE FROM goals WHERE id=? AND user_id=?",
+        (gid, current_user()),
+    )
+    c.commit()
+    c.close()
     return jsonify(ok=True)
+
 
 @app.post("/api/import-csv")
 @login_required
 def import_csv():
-    f=request.files.get("file")
-    if not f: return jsonify(error="Choose a CSV file."),400
+    f = request.files.get("file")
+    if not f:
+        return jsonify(error="Choose a CSV file."), 400
+
     try:
-        text=f.stream.read().decode("utf-8-sig")
-        reader=csv.DictReader(io.StringIO(text))
-        if not reader.fieldnames: return jsonify(error="CSV needs a header row."),400
-        fields={x.strip().lower():x for x in reader.fieldnames}
-        amount_col=next((fields[k] for k in ("amount","value","debit","credit") if k in fields),None)
-        type_col=next((fields[k] for k in ("type","transaction type","kind") if k in fields),None)
-        category_col=next((fields[k] for k in ("category","merchant","description","details") if k in fields),None)
-        date_col=next((fields[k] for k in ("date","transaction date","created_at") if k in fields),None)
-        if not amount_col: return jsonify(error="CSV needs an Amount column. Optional columns: Type, Category/Description, Date, Note."),400
-        c=connect(); count=0
+        text = f.stream.read().decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        if not reader.fieldnames:
+            return jsonify(error="CSV needs a header row."), 400
+
+        fields = {x.strip().lower(): x for x in reader.fieldnames}
+        amount_col = next(
+            (fields[k] for k in ("amount", "value", "debit", "credit") if k in fields),
+            None,
+        )
+        type_col = next(
+            (fields[k] for k in ("type", "transaction type", "kind") if k in fields),
+            None,
+        )
+        category_col = next(
+            (fields[k] for k in ("category", "merchant", "description", "details") if k in fields),
+            None,
+        )
+        date_col = next(
+            (fields[k] for k in ("date", "transaction date", "created_at") if k in fields),
+            None,
+        )
+
+        if not amount_col:
+            return jsonify(error="CSV needs an Amount column."), 400
+
+        c = connect()
+        count = 0
+
         for r in reader:
-            try: amount=abs(float((r.get(amount_col) or "").replace(",","").strip()))
-            except (ValueError,AttributeError): continue
-            if amount<=0: continue
-            rawtype=(r.get(type_col) or "").strip().lower() if type_col else ""
-            typ="income" if rawtype in ("income","credit","cr") else "expense"
-            category=(r.get(category_col) or "Other").strip()[:80] if category_col else "Other"
-            category=category.title() if category else "Other"
-            dt=(r.get(date_col) or "").strip() if date_col else ""
-            c.execute("INSERT INTO transactions(user_id,type,category,amount,note,created_at) VALUES(?,?,?,?,?,?)",
-                (current_user(),typ,category,amount,"Imported from CSV",dt or datetime.now().isoformat(timespec="seconds")))
-            count+=1
-        c.commit(); c.close()
-        return jsonify(ok=True,imported=count)
+            try:
+                amount = abs(float((r.get(amount_col) or "").replace(",", "").strip()))
+            except (ValueError, AttributeError):
+                continue
+
+            if amount <= 0:
+                continue
+
+            rawtype = (r.get(type_col) or "").strip().lower() if type_col else ""
+            typ = "income" if rawtype in ("income", "credit", "cr") else "expense"
+            category = (r.get(category_col) or "Other").strip()[:80] if category_col else "Other"
+            category = category.title() if category else "Other"
+            dt = (r.get(date_col) or "").strip() if date_col else ""
+
+            c.execute(
+                "INSERT INTO transactions(user_id,type,category,amount,note,created_at) VALUES(?,?,?,?,?,?)",
+                (
+                    current_user(),
+                    typ,
+                    category,
+                    amount,
+                    "Imported from CSV",
+                    dt or datetime.now().isoformat(timespec="seconds"),
+                ),
+            )
+            count += 1
+
+        c.commit()
+        c.close()
+        return jsonify(ok=True, imported=count)
+
     except Exception:
-        return jsonify(error="Could not read this CSV. Please save it as UTF-8 CSV and try again."),400
+        return jsonify(error="Could not read this CSV. Please save it as UTF-8 CSV and try again."), 400
+
 
 init_db()
-if __name__=="__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT","5000")), debug=False)
+
+if __name__ == "__main__":
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "5000")),
+        debug=False,
+    )
